@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Lookup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        #topContainer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+        input, button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        input {
+            flex-grow: 1;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #vocabularyList {
+            width: 100%;
+            max-width: 800px;
+            margin-top: 20px;
+        }
+        .word-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: white;
+            margin-bottom: 5px;
+            border-radius: 4px;
+        }
+        .word-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .word-date, .word-count {
+            font-size: 12px;
+            color: #666;
+        }
+        .remove-word, .favorite-button {
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        .remove-word {
+            background-color: #f44336;
+            color: white;
+        }
+        .favorite-button {
+           
+            color: white;
+        }
+        .favorite-button.active {
+            
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .pagination button {
+            margin: 0 5px;
+        }
+        #resetDatabase {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
+            padding: 5px;
+            color: #666;
+        }
+        #resetDatabase:hover {
+            color: #333;
+        }
+        .autocomplete {
+            position: relative;
+            display: inline-block;
+        }
+        .autocomplete-items {
+            position: absolute;
+            border: 1px solid #d4d4d4;
+            border-bottom: none;
+            border-top: none;
+            z-index: 99;
+            top: 100%;
+            left: 0;
+            right: 0;
+        }
+        .autocomplete-items div {
+            padding: 10px;
+            cursor: pointer;
+            background-color: #fff; 
+            border-bottom: 1px solid #d4d4d4; 
+        }
+        .autocomplete-items div:hover {
+            background-color: #e9e9e9; 
+        }
+        .autocomplete-active {
+            background-color: DodgerBlue !important; 
+            color: #ffffff; 
+        }
+        .word-actions {
+            display: flex;
+            align-items: center;
+        }
+        .favorite-button, .remove-button {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            padding: 5px;
+            margin-left: 5px;
+        }
+        .favorite-button {
+            color: inherit; /* 使用继承的颜色，让emoji保持原色 */
+        }
+        .favorite-button:hover, .remove-button:hover {
+            opacity: 0.7;
+        }
+        .lookup-button {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            padding: 5px;
+            margin-right: 5px;
+        }
+        .lookup-button:hover {
+            opacity: 0.7;
+        }
+        #wordInput {
+            flex-grow: 1;
+            margin-right: 5px;
+        }
+        .sort-button {
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            padding: 5px 10px;
+            margin-right: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .sort-button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #exportDatabase, #importDatabase {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
+            padding: 5px;
+            color: #666;
+        }
+        #exportDatabase:hover, #importDatabase:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="topContainer">
+        <div class="input-group">
+            <div class="autocomplete" style="width:100%;">
+                <input type="text" id="wordInput" placeholder="Enter a word to search or lookup">
+            </div>
+            <button id="lookupWord">Search/Lookup</button>
+        </div>
+        <label for="openArc">
+            <input type="checkbox" id="openArc" checked>
+            Open ARC
+        </label>
+        <button id="exportDatabase" title="Export Database">📤</button>
+        <button id="importDatabase" title="Import Database">📥</button>
+        <button id="resetDatabase" title="Reset Database">⚙️</button>
+    </div>
+    <div id="status"></div>
+    <div id="statusMessage" style="margin: 10px 0; padding: 10px; border-radius: 4px; display: none;"></div>
+    <!-- 替换原有的排序选项 -->
+    <div id="sortOptions" style="margin-bottom: 10px;">
+        <span>Sort by: </span>
+        <button class="sort-button" data-sort="created_desc">Date ↓</button>
+        <button class="sort-button" data-sort="created_asc">Date ↑</button>
+        <button class="sort-button" data-sort="alpha_asc">A-Z</button>
+        <button class="sort-button" data-sort="alpha_desc">Z-A</button>
+        <button class="sort-button" data-sort="favorites">Favorites</button>
+    </div>
+    <div id="vocabularyList"></div>
+    <div class="pagination">
+        <button id="prevPage">Previous</button>
+        <span id="pageInfo"></span>
+        <button id="nextPage">Next</button>
+        <span id="totalItems"></span>
+        <select id="itemsPerPageSelect">
+            <option value="10">10</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+            <option value="10000" selected>10000</option>
+        </select>
+        <span>items per page</span>
+    </div>
+    <script>
+        const { ipcRenderer } = require('electron');
+        
+        let allWords = [];
+        let currentPage = 1;
+        let itemsPerPage = 10000;
+        let totalItems = 0;
+        let currentSearchTerm = '';
+        let currentSortOption = 'created_desc';
+        let showingFavorites = false;
+
+        function lookupOrSearch() {
+            const word = document.getElementById('wordInput').value.trim();
+            const openArc = document.getElementById('openArc').checked;
+            
+            if (word) {
+                document.getElementById('status').textContent = 'Processing...';
+                if (openArc) {
+                    // 如果选中了 "Open ARC"，执行 lookup
+                    ipcRenderer.send('lookup-word', word, openArc, itemsPerPage);
+                } else {
+                    // 如果没有选中 "Open ARC"，只添加单词到生词本
+                    ipcRenderer.send('add-word', word);
+                }
+            } else {
+                // 如果输入为空，显示所有单词
+                currentSearchTerm = '';
+                currentPage = 1;
+                performSearch();
+            }
+        }
+
+        function performSearch() {
+            ipcRenderer.send('search-vocabulary', currentSearchTerm, currentPage, itemsPerPage, currentSortOption, showingFavorites);
+        }
+
+        document.getElementById('lookupWord').addEventListener('click', lookupOrSearch);
+
+        document.getElementById('wordInput').addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                lookupOrSearch();
+            }
+        });
+
+        function autocomplete(inp) {
+            let currentFocus;
+            inp.addEventListener("input", function(e) {
+                let a, b, i, val = this.value;
+                closeAllLists();
+                if (!val) { return false; }
+                currentFocus = -1;
+                a = document.createElement("DIV");
+                a.setAttribute("id", this.id + "autocomplete-list");
+                a.setAttribute("class", "autocomplete-items");
+                this.parentNode.appendChild(a);
+                for (i = 0; i < allWords.length; i++) {
+                    if (allWords[i].substr(0, val.length).toUpperCase() == val.toUpperCase()) {
+                        b = document.createElement("DIV");
+                        b.innerHTML = "<strong>" + allWords[i].substr(0, val.length) + "</strong>";
+                        b.innerHTML += allWords[i].substr(val.length);
+                        b.innerHTML += "<input type='hidden' value='" + allWords[i] + "'>";
+                        b.addEventListener("click", function(e) {
+                            inp.value = this.getElementsByTagName("input")[0].value;
+                            closeAllLists();
+                        });
+                        a.appendChild(b);
+                    }
+                }
+            });
+            inp.addEventListener("keydown", function(e) {
+                var x = document.getElementById(this.id + "autocomplete-list");
+                if (x) x = x.getElementsByTagName("div");
+                if (e.keyCode == 40) {
+                    currentFocus++;
+                    addActive(x);
+                } else if (e.keyCode == 38) {
+                    currentFocus--;
+                    addActive(x);
+                } else if (e.keyCode == 13) {
+                    e.preventDefault();
+                    if (currentFocus > -1) {
+                        if (x) x[currentFocus].click();
+                    }
+                }
+            });
+            function addActive(x) {
+                if (!x) return false;
+                removeActive(x);
+                if (currentFocus >= x.length) currentFocus = 0;
+                if (currentFocus < 0) currentFocus = (x.length - 1);
+                x[currentFocus].classList.add("autocomplete-active");
+            }
+            function removeActive(x) {
+                for (var i = 0; i < x.length; i++) {
+                    x[i].classList.remove("autocomplete-active");
+                }
+            }
+            function closeAllLists(elmnt) {
+                var x = document.getElementsByClassName("autocomplete-items");
+                for (var i = 0; i < x.length; i++) {
+                    if (elmnt != x[i] && elmnt != inp) {
+                        x[i].parentNode.removeChild(x[i]);
+                    }
+                }
+            }
+            document.addEventListener("click", function (e) {
+                closeAllLists(e.target);
+            });
+        }
+
+        autocomplete(document.getElementById("wordInput"));
+
+        function updateAllWords() {
+            ipcRenderer.send('get-all-words');
+        }
+
+        ipcRenderer.on('all-words', (event, words) => {
+            allWords = words;
+        });
+
+        function showStatusMessage(message, isError = false) {
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.textContent = message;
+            statusMessage.style.display = 'block';
+            statusMessage.style.backgroundColor = isError ? '#ffcccb' : '#90EE90';
+            statusMessage.style.color = isError ? '#d32f2f' : '#006400';
+            
+            // 3秒后自隐藏消息
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 3000);
+        }
+
+        ipcRenderer.on('lookup-result', (event, result) => {
+            // 隐藏 "Processing..." 状态消息
+            document.getElementById('status').textContent = '';
+
+            if (result.success) {
+                showStatusMessage('Lookup successful', false);
+            } else {
+                showStatusMessage(`Error: ${result.message}`, true);
+            }
+
+            if (result.vocabulary) {
+                updateVocabularyList(result.vocabulary.words);
+                totalItems = result.vocabulary.total;
+                updatePagination();
+                updateAllWords();
+            }
+            if (!result.openedArc) {
+                showStatusMessage('Word added to database without opening ARC.', false);
+            }
+        });
+
+        ipcRenderer.on('search-result', (event, result) => {
+            updateVocabularyList(result.words);
+            totalItems = result.total;
+            updatePagination();
+        });
+
+        ipcRenderer.on('vocabulary', (event, result) => {
+            updateVocabularyList(result.words);
+            totalItems = result.total;
+            updatePagination();
+            updateAllWords();
+        });
+
+        function updateVocabularyList(vocabulary) {
+            const list = document.getElementById('vocabularyList');
+            list.innerHTML = '';
+            vocabulary.forEach(item => {
+                const wordItem = document.createElement('div');
+                wordItem.className = 'word-item';
+                wordItem.innerHTML = `
+                    <div class="word-info">
+                        <span>${item.word}</span>
+                        <span class="word-date">Added: ${new Date(item.created_at).toLocaleString()}</span>
+                        <span class="word-count">Lookup count: ${item.lookup_count}</span>
+                    </div>
+                    <div class="word-actions">
+                        <button class="lookup-button" data-word="${item.word}" title="Lookup in ARC">
+                            🔍
+                        </button>
+                        <button class="favorite-button ${item.is_favorite ? 'active' : ''}" data-word="${item.word}" title="Toggle favorite">
+                            ${item.is_favorite ? '❤️' : '🤍'}
+                        </button>
+                        <button class="remove-button" data-word="${item.word}" title="Remove word">
+                            🗑️
+                        </button>
+                    </div>
+                `;
+                list.appendChild(wordItem);
+            });
+
+            addRemoveListeners();
+            addFavoriteListeners();
+            addLookupListeners();
+        }
+
+        function addRemoveListeners() {
+            document.querySelectorAll('.remove-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const word = this.getAttribute('data-word');
+                    if (confirm(`Are you sure you want to remove "${word}" from your vocabulary?`)) {
+                        // 立即从界面上移除该行
+                        this.closest('.word-item').remove();
+                        
+                        // 更新总数
+                        totalItems--;
+                        updatePagination();
+                        
+                        // 发送删除请求到后端
+                        ipcRenderer.send('remove-word', word);
+                    }
+                });
+            });
+        }
+
+        function addFavoriteListeners() {
+            document.querySelectorAll('.favorite-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const word = this.getAttribute('data-word');
+                    // 立即切换按钮状态
+                    this.classList.toggle('active');
+                    this.innerHTML = this.classList.contains('active') ? '❤️' : '🤍';
+                    
+                    ipcRenderer.send('toggle-favorite', word);
+                });
+            });
+        }
+
+        function addLookupListeners() {
+            document.querySelectorAll('.lookup-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const word = this.getAttribute('data-word');
+                    ipcRenderer.send('lookup-word', word, true, itemsPerPage);
+                });
+            });
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+            document.getElementById('totalItems').textContent = `Total: ${totalItems} items`;
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === totalPages;
+        }
+
+        function changePage(delta) {
+            currentPage += delta;
+            performSearch();
+        }
+
+        document.getElementById('itemsPerPageSelect').addEventListener('change', function() {
+            itemsPerPage = parseInt(this.value);
+            currentPage = 1; // 重置到第一页
+            performSearch();
+        });
+
+        // 修改重置按钮的事件监听器
+        document.getElementById('resetDatabase').addEventListener('click', function() {
+            if (confirm('Are you sure you want to reset the database? This will delete all your words and cannot be undone.')) {
+                ipcRenderer.send('reset-database');
+            }
+        });
+
+        // 添加重置数据库的响应处理
+        ipcRenderer.on('database-reset', (event, result) => {
+            if (result.success) {
+                showStatusMessage('Database has been reset successfully.', false);
+                performSearch(); // 重新加载词汇列表
+                updateAllWords(); // 更新自动完成的单词列表
+            } else {
+                showStatusMessage('Failed to reset database: ' + result.message, true);
+            }
+        });
+
+        // 初始化时设置选择框的默认值
+        document.getElementById('itemsPerPageSelect').value = itemsPerPage;
+
+        // 初始加载
+        performSearch();
+        updateAllWords();
+
+        // 添加新的事件监听器来处理添加单词的响应
+        ipcRenderer.on('word-added', (event, result) => {
+            // 隐藏 "Processing..." 状态消息
+            document.getElementById('status').textContent = '';
+
+            if (result.success) {
+                showStatusMessage(`Word "${result.word}" added to vocabulary.`, false);
+                // 刷新词汇列表
+                currentSearchTerm = '';
+                currentPage = 1;
+                performSearch();
+            } else {
+                showStatusMessage(`Failed to add word: ${result.message}`, true);
+            }
+        });
+
+        function updateSortButtons() {
+            document.querySelectorAll('.sort-button').forEach(button => {
+                button.classList.toggle('active', button.dataset.sort === currentSortOption);
+            });
+        }
+
+        document.querySelectorAll('.sort-button').forEach(button => {
+            button.addEventListener('click', function() {
+                currentSortOption = this.dataset.sort;
+                showingFavorites = currentSortOption === 'favorites';
+                updateSortButtons();
+                performSearch();
+            });
+        });
+
+        // 初始化时更新排序按钮状态
+        updateSortButtons();
+
+        // 添加新的事件监听器来处理删除操作的响应
+        ipcRenderer.on('word-removed', (event, result) => {
+            if (result.success) {
+                showStatusMessage(`Word "${result.word}" removed from vocabulary.`, false);
+            } else {
+                showStatusMessage(`Failed to remove word: ${result.message}`, true);
+                // 如果删除失败，重新加载词汇列表
+                performSearch();
+            }
+        });
+
+        document.getElementById('exportDatabase').addEventListener('click', function() {
+            ipcRenderer.send('export-database');
+        });
+
+        document.getElementById('importDatabase').addEventListener('click', function() {
+            if (confirm('Importing a database will overwrite your current data. Are you sure you want to continue?')) {
+                ipcRenderer.send('import-database');
+            }
+        });
+
+        ipcRenderer.on('database-exported', (event, result) => {
+            if (result.success) {
+                showStatusMessage(`Database exported successfully to ${result.path}`, false);
+            } else {
+                showStatusMessage(`Failed to export database: ${result.message}`, true);
+            }
+        });
+
+        ipcRenderer.on('database-imported', (event, result) => {
+            if (result.success) {
+                showStatusMessage('Database imported successfully. Reloading data...', false);
+                performSearch(); // 重新加载词汇列表
+                updateAllWords(); // 更新自动完成的单词列表
+            } else {
+                showStatusMessage(`Failed to import database: ${result.message}`, true);
+            }
+        });
+    </script>
+</body>
+</html>
